@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="Author" content="Marcin Hornik" />
+  <title>Commands.txt generator v1.0a</title>
+  <script src="http://localhost:35729/livereload.js"></script>
+
+
+</head>
+
+<body>
+<font size="5">Konfigurator pliku <b><u>Commands.txt</u></b> do sterowania klimatyzacją MODBUS TCP/RTU</font> <br><br>
+<hr width="750" align="left">
+
+  Podaj <b>adres SLAVE</b> sterownika Modbus: <input type="text" value="255" id="wart1" size="5"><br><br>
+
+  Podaj rejestr Holding Register odpowiedzialny za <b>zadanie temperatury</b>: <input type="text" value="16549" id="wart2" size="5">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>zadanie wilgotności</b>: <input type="text"  value="16626"id="wart4" size="5"><br>
+  Podaj rejestr Holding Register odpowiedzialny za <b>odczyt temperatury</b>: &nbsp;&nbsp;<input type="text" value="9084"id="wart3" size="5">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>odczyt wilgotności</b>: &nbsp;&nbsp;<input type="text" value="9089"id="wart5" size="5"><br><br>
+
+  Podaj wartość poczatkową(ustawiana przy starcie Integry):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>temperatury:</b> <input type="text" value="20"id="wart16" size="1">*C &nbsp;&nbsp;&nbsp;&nbsp; <b>wilgotności:</b><input type="text" value="50"id="wart13" size="1">% <br>
+    Podaj zakres suwaka: &nbsp;&nbsp;&nbsp;<b>temperatury:</b> Min.: <input type="text" value="16"id="wart14" size="1">*C &nbsp;Max.: <input type="text" value="25"id="wart15" size="1">*C&nbsp;&nbsp;&nbsp;
+    <b>wilgotności: </b>Min.: <input type="text" value="40"id="wart11" size="1">% &nbsp;Max.: <input type="text" value="60"id="wart12" size="1">%
+<br><br>Dzielnik odczytanej wartości <b>tempetatury:</b><input type="text" value="10"id="wart19" size="1"> &nbsp; &nbsp; &nbsp;<b>wilgotności: </b><input type="text" value="10"id="wart20" size="1">
+<br><br>
+<hr width="750" align="left">
+<b>Przyciski opcjonalne</b> (np. Włączy/Wyłącz centralę klimatyzacyjną):
+<br><br>
+<span id="opcja" style="visibility:visible">  Podaj adres Przycisku 1: <input type="text" value="10" id="wart6" size="5">  Podaj wartość Przycisku 1: <input type="text" value="1" id="wart7" size="5"><br>
+Podaj adres Przycisku 2: <input type="text" value="10" id="wart8" size="5">  Podaj wartość Przycisku 2: <input type="text" value="0" id="wart9" size="5"><br>
+<br>
+Podaj adres Przycisku 3: <input type="text" value="11" id="wart10" size="5">  Podaj wartość Przycisku 3: <input type="text" value="1" id="wart111" size="5"><br>
+Podaj adres Przycisku 4: <input type="text" value="11" id="wart112" size="5">  Podaj wartość Przycisku 4: <input type="text" value="0" id="wart113" size="5"><br>
+</span>
+<hr width="750" align="left">
+
+  <!--    <input type="submit" id="zatw" value="Zatwierdź" onClick="pobierzDaneFormularza()">   -->
+
+  <!--    <input type="submit" id="generuj" value="Generuj CRC" onClick="pobierzDaneFormularza(),decTohex(), generatorCRC()"><br><br><span id="wynik1"></span><br><span id="wynik2">   -->
+
+
+
+    <!-- Tworzy plik o nazwie Commands.txt i pobiera dane ze zmiennej commands -->
+<!-- zapisuje plik na dysk wg wskazanej lokalizacji -->
+
+<b><font color="red"><big>Wszystkie wartości należy wpisać w formacie dzisiętnym!</big></font></b>
+<span style="margin: 60px">
+    <a href="" id="a" ><button  onclick="pobierzDaneFormularza(),decTohex(), generatorCRC(), download( commands, 'Commands.txt', 'text/xml')" ><h3> Utwórz plik <u>Commands.txt </u></h3></button></a>
+
+  <br>
+  <hr width="750" align="left">
+  Kalkulator <b>dec</b>  <-> <b>hex</b> <br><br>
+
+  Podaj liczbę dziesiętną: <input type="text" value="" id="wart17" size="5">[dec] = <b><span id="wynikDecToHex"></span></b> <input type="submit" id="zatw" value="Przelicz" onClick="obliczDecToHex()"><br>
+Podaj liczbę szesnastkową: <input type="text" value="" id="wart18" size="5">[hex] = <b><span id="wynikHexToDec"></span></b> <input type="submit" id="zatw" value="Przelicz" onClick="obliczHexToDec()"><br>
+
+
+  <script type="text/javascript">
+let temp150st = ['00', '96'];
+let temp160st = ['00', 'A0'];
+let temp170st = ['00', 'AA'];
+let temp180st = ['00', 'B4'];
+let temp190st = ['00', 'BE'];
+let temp200st = ['00', 'C8'];
+let temp210st = ['00', 'D2'];
+let temp220st = ['00', 'DC'];
+let temp230st = ['00', 'E6'];
+let temp240st = ['00', 'F0'];
+let temp250st = ['00', 'FA'];
+let temp260st = ['01', '04'];
+let temp270st = ['01', '0E'];
+let temp280st = ['01', '18'];
+let temp290st = ['01', '22'];
+let temp300st = ['01', '2C'];
+
+
+let setTempFrame =[];
+let setWilgFrame =[];
+let getTempFrame =[];
+let getWilgFrame =[];
+let setButtons = [];
+
+
+let commands;
+
+// tablica z danymi temp w postaci hex każde kolejne dwa indeksy to temp od 150 do 300
+let tempXXX = ['00','96','00','A0','00','AA','00','B4','00','BE','00','C8','00', 'D2','00','DC','00', 'E6','00', 'F0','00', 'FA','01', '04','01', '0E','01', '18','01', '22','01', '2C'];
+let wilgXX = ['00','28', '00','2D','00','32','00','37','00','3C','00','41'];
+let wilgXXX = ['01','90', '01','C2','01','F4','02','26','02','58','02','8A'];
+
+
+let zapisModbus = "06";
+let odczytModbus = "03";
+
+
+  let wart1;
+  let wart2;
+  let wart3;
+  let wart4;
+  let wart5;
+  let wart6;
+  let wart17;
+
+var dane;
+
+
+let len = 6;
+let pos;
+
+function download(text, name, type) {
+          var a = document.getElementById("a");
+          var file = new Blob([text], {
+              type: type
+          });
+          a.href = URL.createObjectURL(file);
+          a.download = name;
+      }
+
+
+
+function obliczDecToHex(){
+
+wart17 = document.getElementById("wart17").value;
+
+  let i = parseInt(wart17, 10); // zamienia wartośc string wart1 na liczbe dziesietna
+
+  let result = "0000";
+    if      (i >= 0    && i <= 15)    { result = "0" + i.toString(16); }
+    else if (i >= 16   && i <= 255)   { result = ""  + i.toString(16); }
+    else if (i >= 256  && i <= 4095)  { result = "0"   + i.toString(16); }
+    else if (i >= 4096 && i <= 65535) { result =         i.toString(16); }
+
+ document.getElementById("wynikDecToHex").innerHTML = result.toUpperCase()+" [hex]";
+}
+
+function obliczHexToDec(){
+
+wart17 = document.getElementById("wart18").value;
+
+// wersja skrocona eS6
+//let wynik =  wart17.toLowerCase().split('').reduce( (result, ch) =>
+// result * 16 + '0123456789abcdefgh'.indexOf(ch), 0);     // uproszczony zapis wywoøania funkcji
+
+ let wynik =  wart17.toLowerCase().split('').reduce(
+ function(result,ch) {
+   return result * 16 + '0123456789abcdefgh'.indexOf(ch);
+
+  },0);
+
+
+
+ document.getElementById("wynikHexToDec").innerHTML = wynik+" [dec]";
+}
+
+function pobierzDaneFormularza(){
+
+  wart1 = document.getElementById("wart1").value;
+  wart2 = document.getElementById("wart2").value;
+  wart3 = document.getElementById("wart3").value;
+  wart4 = document.getElementById("wart4").value;
+  wart5 = document.getElementById("wart5").value;
+  wart6 = document.getElementById("wart6").value;
+  wart7 = document.getElementById("wart7").value;
+  wart8 = document.getElementById("wart8").value;
+  wart9 = document.getElementById("wart9").value;
+  wart10 = document.getElementById("wart10").value;
+  wart11 = document.getElementById("wart11").value;
+  wart111 = document.getElementById("wart111").value;
+  wart112 = document.getElementById("wart112").value;
+  wart113 = document.getElementById("wart113").value;
+
+
+  let i1 = parseInt(wart1, 10); // zamienia wartośc string wart1 na liczbe dziesietna
+
+  let resultwart1 = "0000";
+    if      (i1 >= 0    && i1 <= 15)    { resultwart1 = "0" + i1.toString(16); }
+    else if (i1 >= 16   && i1 <= 255)   { resultwart1 = ""  + i1.toString(16); }
+    else if (i1 >= 256  && i1 <= 4095)  { resultwart1 = "0"   + i1.toString(16); }
+    else if (i1 >= 4096 && i1 <= 65535) { resultwart1 =         i1.toString(16); }
+
+  let i = parseInt(wart2, 10);
+
+  let resultwart2 = "0000";
+    if      (i >= 0    && i <= 15)    { resultwart2 = "000" + i.toString(16); }
+    else if (i >= 16   && i <= 255)   { resultwart2 = "00"  + i.toString(16); }
+    else if (i >= 256  && i <= 4095)  { resultwart2 = "0"   + i.toString(16); }
+    else if (i >= 4096 && i <= 65535) { resultwart2 =         i.toString(16); }
+
+    let i4 = parseInt(wart4, 10); // zamienia wartośc string wart1 na liczbe dziesietna
+
+    let resultwart4 = "0000";
+      if      (i4 >= 0    && i4 <= 15)    { resultwart4 = "0" + i4.toString(16); }
+      else if (i4 >= 16   && i4 <= 255)   { resultwart4 = ""  + i4.toString(16); }
+      else if (i4 >= 256  && i4 <= 4095)  { resultwart4 = "0"   + i4.toString(16); }
+      else if (i4 >= 4096 && i4 <= 65535) { resultwart4 =         i4.toString(16); }
+
+      let resultwart4split =  resultwart4.split("");
+      let resultwart4splitLow =  (resultwart4split[0]+resultwart4split[1]);
+      let resultwart4splitHigh =  (resultwart4split[2]+resultwart4split[3]);
+
+
+let resultwart2split =  resultwart2.split("");
+let resultwart2splitLow =  (resultwart2split[0]+resultwart2split[1]);
+let resultwart2splitHigh =  (resultwart2split[2]+resultwart2split[3]);
+
+  dane1 = [("0x"+resultwart1),("0x"+zapisModbus),("0x"+resultwart2splitLow),("0x"+resultwart2splitHigh),("0x"+temp150st[0]),("0x"+temp150st[1])];
+dane2 = [("0x"+resultwart1),("0x"+zapisModbus),("0x"+resultwart2splitLow),("0x"+resultwart2splitHigh),("0x"+temp160st[0]),("0x"+temp160st[1])];
+}
+
+function decTohex(){
+
+  let i = parseInt(wart1, 10); // zamienia wartośc string wart1 na liczbe dziesietna
+
+  let result = "0000";
+    if      (i >= 0    && i <= 15)    { result = "0" + i.toString(16); }
+    else if (i >= 16   && i <= 255)   { result = ""  + i.toString(16); }
+    else if (i >= 256  && i <= 4095)  { result = "0"   + i.toString(16); }
+    else if (i >= 4096 && i <= 65535) { result =         i.toString(16); }
+
+}
+
+
+
+function zmienne(){
+
+wart1 = document.getElementById("wart1").value;
+wart2 = document.getElementById("wart2").value;
+wart3 = document.getElementById("wart3").value;
+wart4 = document.getElementById("wart4").value;
+wart5 = document.getElementById("wart5").value;
+wart6 = document.getElementById("wart6").value;
+
+let i = parseInt(wart2, 10);
+
+let resultwart2 = "0000";
+  if      (i >= 0    && i <= 15)    { resultwart2 = "0" + i.toString(16); }
+  else if (i >= 16   && i <= 255)   { resultwart2 = ""  + i.toString(16); }
+  else if (i >= 256  && i <= 4095)  { resultwart2 = "0"   + i.toString(16); }
+  else if (i >= 4096 && i <= 65535) { resultwart2 =         i.toString(16); }
+
+dane = [wart1,wart2,wart3,wart4,wart5,wart6];
+
+// ponizsza instrukcja zamienia liczbe dzisiętna na hexa
+alert(resultwart2);
+
+}
+
+    function generatorCRC() {
+
+
+      let i = parseInt(wart1, 10); // zamienia wartośc string wart1 na liczbe szesnastkową
+
+      let resultwart1 = "0000";
+        if      (i >= 0    && i <= 15)    { resultwart1 = "0" + i.toString(16); }
+        else if (i >= 16   && i <= 255)   { resultwart1 = ""  + i.toString(16); }
+        else if (i >= 256  && i <= 4095)  { resultwart1 = "0"   + i.toString(16); }
+        else if (i >= 4096 && i <= 65535) { resultwart1 =         i.toString(16); }
+
+        let i1 = parseInt(wart2, 10);
+
+        let resultwart2 = "0000";
+          if      (i1 >= 0    && i1 <= 15)    { resultwart2 = "000" + i1.toString(16); }
+          else if (i1 >= 16   && i1 <= 255)   { resultwart2 = "00"  + i1.toString(16); }
+          else if (i1 >= 256  && i1 <= 4095)  { resultwart2 = "0"   + i1.toString(16); }
+          else if (i1 >= 4096 && i1 <= 65535) { resultwart2 =         i1.toString(16); }
+
+        let resultwart2split =  resultwart2.split("");
+        let resultwart2splitLow = (resultwart2split[0]+resultwart2split[1]);
+        let resultwart2splitHigh = (resultwart2split[2]+resultwart2split[3]);
+
+//// wart3 - rejestr odczyt temp - zamana dzieisetnej na hex
+let i3 = parseInt(wart3, 10);
+
+let resultwart3 = "0000";
+  if      (i3 >= 0    && i3 <= 15)    { resultwart3 = "000" + i3.toString(16); }
+  else if (i3 >= 16   && i3 <= 255)   { resultwart3 = "00"  + i3.toString(16); }
+  else if (i3 >= 256  && i3 <= 4095)  { resultwart3 = "0"   + i3.toString(16); }
+  else if (i3 >= 4096 && i3 <= 65535) { resultwart3 =         i3.toString(16); }
+
+let resultwart3split =  resultwart3.split("");
+let resultwart3splitLow = (resultwart3split[0]+resultwart3split[1]);
+let resultwart3splitHigh = (resultwart3split[2]+resultwart3split[3]);
+
+
+///// wart4 - rejestr zapisu wilg - zamana dzieisetnej na hex
+let i4 = parseInt(wart4, 10);
+
+let resultwart4 = "0000";
+  if      (i4 >= 0    && i4 <= 15)    { resultwart4 = "000" + i4.toString(16); }
+  else if (i4 >= 16   && i4 <= 255)   { resultwart4 = "00"  + i4.toString(16); }
+  else if (i4 >= 256  && i4 <= 4095)  { resultwart4 = "0"   + i4.toString(16); }
+  else if (i4 >= 4096 && i4 <= 65535) { resultwart4 =         i4.toString(16); }
+
+let resultwart4split =  resultwart4.split("");
+let resultwart4splitLow = (resultwart4split[0]+resultwart4split[1]);
+let resultwart4splitHigh = (resultwart4split[2]+resultwart4split[3]);
+
+//wart5 - rejestr odczyt wilgotn - zamana dzieisetnej na hex
+let i5 = parseInt(wart5, 10);
+
+let resultwart5 = "0000";
+  if      (i5 >= 0    && i5 <= 15)    { resultwart5 = "000" + i5.toString(16); }
+  else if (i5 >= 16   && i5 <= 255)   { resultwart5 = "00"  + i5.toString(16); }
+  else if (i5 >= 256  && i5 <= 4095)  { resultwart5 = "0"   + i5.toString(16); }
+  else if (i5 >= 4096 && i5 <= 65535) { resultwart5 =         i5.toString(16); }
+
+let resultwart5split =  resultwart5.split("");
+let resultwart5splitLow = (resultwart5split[0]+resultwart5split[1]);
+let resultwart5splitHigh = (resultwart5split[2]+resultwart5split[3]);
+
+
+// od tego miejsca wyliczanie crc dla 1 wartości odczytu temperatury
+let daneDoCrcGetTemp =[];
+let CrcGetTemp = 0xFFFF;
+
+
+for (y = 0; y <= 5; ++y){
+
+daneDoCrcGetTemp[0] = "0x"+resultwart1;
+daneDoCrcGetTemp[1] = "0x"+odczytModbus;
+daneDoCrcGetTemp[2] = "0x"+resultwart3splitLow;
+daneDoCrcGetTemp[3] = "0x"+resultwart3splitHigh;
+daneDoCrcGetTemp[4] = "0x"+"00"; //
+daneDoCrcGetTemp[5] = "0x"+"01"; // odczyt tylko jednego rejestu
+// wyliczanie crc ze wzoru
+
+    for (pos = 0; pos < len; pos++) {
+      CrcGetTemp ^= daneDoCrcGetTemp[pos]; // XOR byte into least sig. byte of crc
+
+      for (let i = 8; i != 0; i--) { // Loop over each bit
+        if ((CrcGetTemp & 0x0001) != 0) { // If the LSB is set
+          CrcGetTemp >>= 1; // Shift right and XOR 0xA001
+          CrcGetTemp ^= 0xA001;
+        } else // Else LSB is not set
+          CrcGetTemp >>= 1; // Just shift right
+      }
+
+    }
+
+
+    //transformacja crc [dec] na crc[hex] zczterema znakami
+let icrc = CrcGetTemp;
+
+    let crc16GetTemp = "0000";
+      if      (icrc >= 0    && icrc <= 15)    { crc16GetTemp = "000" + icrc.toString(16); }
+      else if (icrc >= 16   && icrc <= 255)   { crc16GetTemp = "00"  + icrc.toString(16); }
+      else if (icrc >= 256  && icrc <= 4095)  { crc16GetTemp = "0"   + icrc.toString(16); }
+      else if (icrc >= 4096 && icrc <= 65535) { crc16GetTemp =         icrc.toString(16); }
+
+
+//zamiana liczby crc na stringa i zamiana wartosci miejscami
+
+let crc16uppercaseGetTemp = crc16GetTemp.toUpperCase(); // ustawia wszystkie litery drukowane(duże)
+let crc16uppercasefirst2GetTemp =  crc16uppercaseGetTemp.split("");
+let crcPropperGetTemp = (crc16uppercasefirst2GetTemp[2]+crc16uppercasefirst2GetTemp[3]+" "+crc16uppercasefirst2GetTemp[0]+crc16uppercasefirst2GetTemp[1]);
+
+
+getTempFrame[y] = resultwart1.toUpperCase()+" "  + odczytModbus+" "  + resultwart3splitLow.toUpperCase() +" " + resultwart3splitHigh.toUpperCase() +" " + "00" +" " + "01"+" " +crcPropperGetTemp;
+CrcGetTemp = 0xFFFF;
+
+  }
+/////xxxxxxxxxxxxxxxxxxxxxxxx
+// od tego miejsca wyliczanie crc dla 1 wartości odczytu temperatury
+let daneDoCrcGetWilg =[];
+let CrcGetWilg = 0xFFFF;
+
+
+for (z = 0; z <= 5; ++z){
+
+daneDoCrcGetWilg[0] = "0x"+resultwart1;
+daneDoCrcGetWilg[1] = "0x"+odczytModbus;
+daneDoCrcGetWilg[2] = "0x"+resultwart5splitLow;
+daneDoCrcGetWilg[3] = "0x"+resultwart5splitHigh;
+daneDoCrcGetWilg[4] = "0x"+"00"; //
+daneDoCrcGetWilg[5] = "0x"+"02"; // odczyt dwuch rejestró(aby się nie myliło s status1
+// wyliczanie crc ze wzoru
+
+    for (pos = 0; pos < len; pos++) {
+      CrcGetWilg ^= daneDoCrcGetWilg[pos]; // XOR byte into least sig. byte of crc
+
+      for (let i = 8; i != 0; i--) { // Loop over each bit
+        if ((CrcGetWilg & 0x0001) != 0) { // If the LSB is set
+          CrcGetWilg >>= 1; // Shift right and XOR 0xA001
+          CrcGetWilg ^= 0xA001;
+        } else // Else LSB is not set
+          CrcGetWilg >>= 1; // Just shift right
+      }
+
+    }
+
+
+    //transformacja crc [dec] na crc[hex] zczterema znakami
+let icrc = CrcGetWilg;
+
+    let crc16GetWilg = "0000";
+      if      (icrc >= 0    && icrc <= 15)    { crc16GetWilg = "000" + icrc.toString(16); }
+      else if (icrc >= 16   && icrc <= 255)   { crc16GetWilg = "00"  + icrc.toString(16); }
+      else if (icrc >= 256  && icrc <= 4095)  { crc16GetWilg = "0"   + icrc.toString(16); }
+      else if (icrc >= 4096 && icrc <= 65535) { crc16GetWilg =         icrc.toString(16); }
+
+
+//zamiana liczby crc na stringa i zamiana wartosci miejscami
+
+let crc16uppercaseGetWilg = crc16GetWilg.toUpperCase(); // ustawia wszystkie litery drukowane(duże)
+let crc16uppercasefirst2GetWilg =  crc16uppercaseGetWilg.split("");
+let crcPropperGetWilg = (crc16uppercasefirst2GetWilg[2]+crc16uppercasefirst2GetWilg[3]+" "+crc16uppercasefirst2GetWilg[0]+crc16uppercasefirst2GetWilg[1]);
+
+
+getWilgFrame[z] = resultwart1.toUpperCase()+" "  + odczytModbus+" "  + resultwart5splitLow.toUpperCase() +" " + resultwart5splitHigh.toUpperCase() +" " + "00" +" " + "02"+" " +crcPropperGetWilg;
+CrcGetWilg = 0xFFFF;
+
+  }
+/////xxxxxxxxxxxxxxxxxxxxxxxx
+
+let i6 = parseInt(wart6, 10); //adres button1
+
+let resultwart6 = "0000";
+  if      (i6 >= 0    && i6 <= 15)    { resultwart6 = "000" + i6.toString(16); }
+  else if (i6 >= 16   && i6 <= 255)   { resultwart6 = "00"  + i6.toString(16); }
+  else if (i6 >= 256  && i6 <= 4095)  { resultwart6 = "0"   + i6.toString(16); }
+  else if (i6 >= 4096 && i6 <= 65535) { resultwart6 =         i6.toString(16); }
+
+let resultwart6split =  resultwart6.split("");
+let resultwart6splitLow = (resultwart6split[0]+resultwart6split[1]);
+let resultwart6splitHigh = (resultwart6split[2]+resultwart6split[3]);
+
+let i7 = parseInt(wart7, 10); //wartośc button1
+
+let resultwart7 = "0000";
+  if      (i7 >= 0    && i7 <= 15)    { resultwart7 = "000" + i7.toString(16); }
+  else if (i7 >= 16   && i7 <= 255)   { resultwart7 = "00"  + i7.toString(16); }
+  else if (i7 >= 256  && i7 <= 4095)  { resultwart7 = "0"   + i7.toString(16); }
+  else if (i7 >= 4096 && i7 <= 65535) { resultwart7 =         i7.toString(16); }
+
+let resultwart7split =  resultwart7.split("");
+let resultwart7splitLow = (resultwart7split[0]+resultwart7split[1]);
+let resultwart7splitHigh = (resultwart7split[2]+resultwart7split[3]);
+
+let i8 = parseInt(wart8, 10); //adres button2
+
+let resultwart8 = "0000";
+  if      (i8 >= 0    && i8 <= 15)    { resultwart8 = "000" + i8.toString(16); }
+  else if (i8 >= 16   && i8 <= 255)   { resultwart8 = "00"  + i8.toString(16); }
+  else if (i8 >= 256  && i8 <= 4095)  { resultwart8 = "0"   + i8.toString(16); }
+  else if (i8 >= 4096 && i8 <= 65535) { resultwart8 =         i8.toString(16); }
+
+let resultwart8split =  resultwart8.split("");
+let resultwart8splitLow = (resultwart8split[0]+resultwart8split[1]);
+let resultwart8splitHigh = (resultwart8split[2]+resultwart8split[3]);
+
+let i9 = parseInt(wart9, 10); //wartosc button2
+
+let resultwart9 = "0000";
+  if      (i9 >= 0    && i9 <= 15)    { resultwart9 = "000" + i9.toString(16); }
+  else if (i9 >= 16   && i9 <= 255)   { resultwart9 = "00"  + i9.toString(16); }
+  else if (i9 >= 256  && i9 <= 4095)  { resultwart9 = "0"   + i9.toString(16); }
+  else if (i9 >= 4096 && i9 <= 65535) { resultwart9 =         i9.toString(16); }
+
+let resultwart9split =  resultwart9.split("");
+let resultwart9splitLow = (resultwart9split[0]+resultwart9split[1]);
+let resultwart9splitHigh = (resultwart9split[2]+resultwart9split[3]);
+
+let i10 = parseInt(wart10, 10); //adres button3
+
+let resultwart10 = "0000";
+  if      (i10 >= 0    && i10 <= 15)    { resultwart10 = "000" + i10.toString(16); }
+  else if (i10 >= 16   && i10 <= 255)   { resultwart10 = "00"  + i10.toString(16); }
+  else if (i10 >= 256  && i10 <= 4095)  { resultwart10 = "0"   + i10.toString(16); }
+  else if (i10 >= 4096 && i10 <= 65535) { resultwart10 =         i10.toString(16); }
+
+let resultwart10split =  resultwart10.split("");
+let resultwart10splitLow = (resultwart10split[0]+resultwart10split[1]);
+let resultwart10splitHigh = (resultwart10split[2]+resultwart10split[3]);
+
+let i111 = parseInt(wart111, 10); //wartosc button3
+
+let resultwart111 = "0000";
+  if      (i111 >= 0    && i111 <= 15)    { resultwart111 = "000" + i111.toString(16); }
+  else if (i111 >= 16   && i111 <= 255)   { resultwart111 = "00"  + i111.toString(16); }
+  else if (i111 >= 256  && i111 <= 4095)  { resultwart111 = "0"   + i111.toString(16); }
+  else if (i111 >= 4096 && i111 <= 65535) { resultwart111 =         i111.toString(16); }
+
+let resultwart111split =  resultwart111.split("");
+let resultwart111splitLow = (resultwart111split[0]+resultwart111split[1]);
+let resultwart111splitHigh = (resultwart111split[2]+resultwart111split[3]);
+
+
+let i112 = parseInt(wart112, 10); //adres button4
+
+let resultwart112 = "0000";
+  if      (i112 >= 0    && i112 <= 15)    { resultwart112 = "000" + i112.toString(16); }
+  else if (i112 >= 16   && i112 <= 255)   { resultwart112 = "00"  + i112.toString(16); }
+  else if (i112 >= 256  && i112 <= 4095)  { resultwart112 = "0"   + i112.toString(16); }
+  else if (i112 >= 4096 && i112 <= 65535) { resultwart112 =         i112.toString(16); }
+
+let resultwart112split =  resultwart112.split("");
+let resultwart112splitLow = (resultwart112split[0]+resultwart112split[1]);
+let resultwart112splitHigh = (resultwart112split[2]+resultwart112split[3]);
+
+let i113 = parseInt(wart113, 10); //wartosc button4
+
+let resultwart113 = "0000";
+  if      (i113 >= 0    && i113 <= 15)    { resultwart113 = "000" + i113.toString(16); }
+  else if (i113 >= 16   && i113 <= 255)   { resultwart113 = "00"  + i113.toString(16); }
+  else if (i113 >= 256  && i113 <= 4095)  { resultwart113 = "0"   + i113.toString(16); }
+  else if (i113 >= 4096 && i113 <= 65535) { resultwart113 =         i113.toString(16); }
+
+let resultwart113split =  resultwart113.split("");
+let resultwart113splitLow = (resultwart113split[0]+resultwart113split[1]);
+let resultwart113splitHigh = (resultwart113split[2]+resultwart113split[3]);
+
+
+
+// od tego miejsca wyliczanie crc dla 4 buttonów
+let daneDoCrcButtons =[];
+let CrcButtons = 0xFFFF;
+let buttonsAddress = [resultwart6splitLow, resultwart6splitHigh,resultwart8splitLow, resultwart8splitHigh,resultwart10splitLow, resultwart10splitHigh,resultwart112splitLow, resultwart112splitHigh,];
+let buttonsValue = [resultwart7splitLow, resultwart7splitHigh,resultwart9splitLow, resultwart9splitHigh,resultwart111splitLow, resultwart111splitHigh,resultwart113splitLow, resultwart113splitHigh,];
+
+for (w = 0; w <= 3; ++w){
+
+daneDoCrcButtons[0] = "0x"+resultwart1;
+daneDoCrcButtons[1] = "0x"+zapisModbus;
+daneDoCrcButtons[2] = "0x"+buttonsAddress[2*w];
+daneDoCrcButtons[3] = "0x"+buttonsAddress[2*w+1];
+daneDoCrcButtons[4] = "0x"+buttonsValue[2*w]; //
+daneDoCrcButtons[5] = "0x"+buttonsValue[2*w+1];
+// wyliczanie crc ze wzoru
+
+    for (pos = 0; pos < len; pos++) {
+      CrcButtons ^= daneDoCrcButtons[pos]; // XOR byte into least sig. byte of crc
+
+      for (let i = 8; i != 0; i--) { // Loop over each bit
+        if ((CrcButtons & 0x0001) != 0) { // If the LSB is set
+          CrcButtons >>= 1; // Shift right and XOR 0xA001
+          CrcButtons ^= 0xA001;
+        } else // Else LSB is not set
+          CrcButtons >>= 1; // Just shift right
+      }
+
+    }
+
+
+    //transformacja crc [dec] na crc[hex] zczterema znakami
+let icrc = CrcButtons;
+
+    let crc16Buttons = "0000";
+      if      (icrc >= 0    && icrc <= 15)    { crc16Buttons = "000" + icrc.toString(16); }
+      else if (icrc >= 16   && icrc <= 255)   { crc16Buttons = "00"  + icrc.toString(16); }
+      else if (icrc >= 256  && icrc <= 4095)  { crc16Buttons = "0"   + icrc.toString(16); }
+      else if (icrc >= 4096 && icrc <= 65535) { crc16Buttons =         icrc.toString(16); }
+
+
+//zamiana liczby crc na stringa i zamiana wartosci miejscami
+
+let crc16uppercaseButtons = crc16Buttons.toUpperCase(); // ustawia wszystkie litery drukowane(duże)
+let crc16uppercasefirst2Buttons =  crc16uppercaseButtons.split("");
+let crcPropperButtons = (crc16uppercasefirst2Buttons[2]+crc16uppercasefirst2Buttons[3]+" "+crc16uppercasefirst2Buttons[0]+crc16uppercasefirst2Buttons[1]);
+
+
+setButtons[w] = resultwart1.toUpperCase()+" "  + zapisModbus+" "  + buttonsAddress[2*w].toUpperCase() +" " + buttonsAddress[2*w+1].toUpperCase() +" " + buttonsValue[2*w].toUpperCase() + " " + buttonsValue[2*w+1].toUpperCase() +" " +crcPropperButtons;
+CrcButtons = 0xFFFF;
+
+  }
+/////xxxxxxxxxxxxxxxxxxxxxxxx
+
+// od tego miejsca wyliczanie crc dla 6 wartości wilgotn zadanej
+let daneDoCrcWilg =[];
+let crcWilgWrite = 0xFFFF;
+
+
+for (x = 0; x <= 5; ++x){
+
+daneDoCrcWilg[0] = "0x"+resultwart1;
+daneDoCrcWilg[1] = "0x"+zapisModbus;
+daneDoCrcWilg[2] = "0x"+resultwart4splitLow;
+daneDoCrcWilg[3] = "0x"+resultwart4splitHigh;
+daneDoCrcWilg[4] = "0x"+wilgXXX[2*x];
+daneDoCrcWilg[5] = "0x"+wilgXXX[2*x+1];
+// wyliczanie crc ze wzoru
+
+    for (pos = 0; pos < len; pos++) {
+      crcWilgWrite ^= daneDoCrcWilg[pos]; // XOR byte into least sig. byte of crc
+
+      for (let i = 8; i != 0; i--) { // Loop over each bit
+        if ((crcWilgWrite & 0x0001) != 0) { // If the LSB is set
+          crcWilgWrite >>= 1; // Shift right and XOR 0xA001
+          crcWilgWrite ^= 0xA001;
+        } else // Else LSB is not set
+          crcWilgWrite >>= 1; // Just shift right
+      }
+
+    }
+
+
+    //transformacja crc [dec] na crc[hex] zczterema znakami
+let icrc = crcWilgWrite;
+
+    let crc16Wilg = "0000";
+      if      (icrc >= 0    && icrc <= 15)    { crc16Wilg = "000" + icrc.toString(16); }
+      else if (icrc >= 16   && icrc <= 255)   { crc16Wilg = "00"  + icrc.toString(16); }
+      else if (icrc >= 256  && icrc <= 4095)  { crc16Wilg = "0"   + icrc.toString(16); }
+      else if (icrc >= 4096 && icrc <= 65535) { crc16Wilg =         icrc.toString(16); }
+
+
+//zamiana liczby crc na stringa i zamiana wartosci miejscami
+
+let crc16uppercaseWilg = crc16Wilg.toUpperCase(); // ustawia wszystkie litery drukowane(duże)
+let crc16uppercasefirst2Wilg =  crc16uppercaseWilg.split("");
+let crcPropperWilg = (crc16uppercasefirst2Wilg[2]+crc16uppercasefirst2Wilg[3]+" "+crc16uppercasefirst2Wilg[0]+crc16uppercasefirst2Wilg[1]);
+
+
+setWilgFrame[x] = resultwart1.toUpperCase()+" "  + zapisModbus+" "  + resultwart4splitLow.toUpperCase() +" " + resultwart4splitHigh.toUpperCase() +" " + wilgXXX[2*x] +" " + wilgXXX[2*x+1] +" " +crcPropperWilg;
+crcWilgWrite = 0xFFFF;
+
+  }
+
+
+
+/// od tego miejsca wyliczanie CRC dla 15 wartosci temp zadanej
+let daneDoCRC =[];
+let crc = 0xFFFF;
+
+  for (n = 0; n <= 15; ++n){
+
+daneDoCRC[0] = "0x"+resultwart1;
+daneDoCRC[1] = "0x"+zapisModbus;
+daneDoCRC[2] = "0x"+resultwart2splitLow;
+daneDoCRC[3] = "0x"+resultwart2splitHigh;
+daneDoCRC[4] = "0x"+tempXXX[2*n];
+daneDoCRC[5] = "0x"+tempXXX[2*n+1];
+// wyliczanie crc ze wzoru
+
+      for (pos = 0; pos < len; pos++) {
+        crc ^= daneDoCRC[pos]; // XOR byte into least sig. byte of crc
+
+        for (let i = 8; i != 0; i--) { // Loop over each bit
+          if ((crc & 0x0001) != 0) { // If the LSB is set
+            crc >>= 1; // Shift right and XOR 0xA001
+            crc ^= 0xA001;
+          } else // Else LSB is not set
+            crc >>= 1; // Just shift right
+        }
+      }
+      let icrcTemp = crc;
+
+          let crc16Temp = "0000";
+            if      (icrcTemp >= 0    && icrcTemp <= 15)    { crc16Temp = "000" + icrc.toString(16); }
+            else if (icrcTemp >= 16   && icrcTemp <= 255)   { crc16Temp = "00"  + icrcTemp.toString(16); }
+            else if (icrcTemp >= 256  && icrcTemp <= 4095)  { crc16Temp = "0"   + icrcTemp.toString(16); }
+            else if (icrcTemp >= 4096 && icrcTemp <= 65535) { crc16Temp =         icrcTemp.toString(16); }
+
+
+
+//zamiana liczby crc na stringa i zamiana wartosci miejscami
+let crc16 = crc16Temp.toString(16); //zamienia wartość liczbową na wartość  string
+let crc16uppercase = crc16.toUpperCase(); // ustawia wszystkie litery drukowane(duże)
+let crc16uppercasefirst2 =  crc16uppercase.split("");
+let crcPropper = (crc16uppercasefirst2[2]+crc16uppercasefirst2[3]+" "+crc16uppercasefirst2[0]+crc16uppercasefirst2[1]);
+
+
+setTempFrame[n] = resultwart1.toUpperCase()+" "  + zapisModbus+" "  + resultwart2splitLow.toUpperCase() +" " + resultwart2splitHigh.toUpperCase() +" " + tempXXX[2*n] +" " + tempXXX[2*n+1] +" " +crcPropper;
+  crc = 0xFFFF;
+
+    }
+console.log(setTempFrame);
+let nl = '\r\n';
+//wygenerowana treśc pliku commads.txt
+commands ='﻿// comments'
++nl+'ProducerName						= CAREL '
++nl+'SliderDelayMS						= 500'
++nl+'ModbusSlaveAddress                  = ' + resultwart1.toUpperCase()
++nl+''
++nl+'CommandRequestStatus1				= ' + getTempFrame[0]
++nl+'ByteResponseStatus1					= 02'
++nl+'CommandRequestStatus2				= ' + getWilgFrame[0]
++nl+'ByteResponseStatus2					= 04'
++nl+''
++nl+'DefaultRequestSetValTemperature     = '+ document.getElementById('wart16').value
++nl+'DefaultRequestMinValTemperature     = '+ document.getElementById('wart14').value
++nl+'DefaultRequestMaxValTemperature     = '+ document.getElementById('wart15').value
++nl+'CommandRequestSetValTemperature15       = '+setTempFrame[0]
++nl+'CommandRequestSetValTemperature16       = '+setTempFrame[1]
++nl+'CommandRequestSetValTemperature17       = '+setTempFrame[2]
++nl+'CommandRequestSetValTemperature18       = '+setTempFrame[3]
++nl+'CommandRequestSetValTemperature19       = '+setTempFrame[4]
++nl+'CommandRequestSetValTemperature20       = '+setTempFrame[5]
++nl+'CommandRequestSetValTemperature21       = '+setTempFrame[6]
++nl+'CommandRequestSetValTemperature22       = '+setTempFrame[7]
++nl+'CommandRequestSetValTemperature23       = '+setTempFrame[8]
++nl+'CommandRequestSetValTemperature24       = '+setTempFrame[9]
++nl+'CommandRequestSetValTemperature25       = '+setTempFrame[10]
++nl+'CommandRequestSetValTemperature26       = '+setTempFrame[11]
++nl+'CommandRequestSetValTemperature27       = '+setTempFrame[12]
++nl+'CommandRequestSetValTemperature28       = '+setTempFrame[13]
++nl+'CommandRequestSetValTemperature29       = '+setTempFrame[14]
++nl+'CommandRequestSetValTemperature30       = '+setTempFrame[15]
++nl+''
++nl+'DefaultRequestSetValHumidity      	= '+ document.getElementById('wart13').value
++nl+'DefaultRequestMinValHumidity      	= '+ document.getElementById('wart11').value
++nl+'DefaultRequestMaxValHumidity      	= '+ document.getElementById('wart12').value
++nl+''
++nl+'CommandRequestSetHumidity40			= '+setWilgFrame[0]
++nl+'CommandRequestSetHumidity45			= '+setWilgFrame[1]
++nl+'CommandRequestSetHumidity50			= '+setWilgFrame[2]
++nl+'CommandRequestSetHumidity55			= '+setWilgFrame[3]
++nl+'CommandRequestSetHumidity60			= '+setWilgFrame[4]
++nl+'CommandRequestSetHumidity65			= '+setWilgFrame[5]
++nl+''
++nl+'CommandConfigExtra1                 = ' + setButtons[0]
++nl+'CommandConfigExtra2                 = ' + setButtons[1]
++nl+'CommandConfigExtra3                 = ' + setButtons[2]
++nl+'CommandConfigExtra4                 = ' + setButtons[3]
++nl+''
++nl+'ByteIndexResponseGetTemperature		= Status1:1'
++nl+'ByteIndexResponseGetHumidity		= Status2:1'
++nl+'ByteIndexResponseSetHumidity 		= Status2:10'
++nl+'ByteIndexResponseSetTemperature		= Status1:10'
++nl+''
++nl+'DividerValResponseGetHumidity       = ' + document.getElementById('wart20').value
++nl+'DividerValResponseGetTemperature    = ' + document.getElementById('wart19').value
++nl+'DividerValResponseSetHumidity 	    = 1'
++nl+'DividerValResponseSetTemperature    = 1' ;
+
+  }
+
+  </script>
+</body>
+
+</html>
